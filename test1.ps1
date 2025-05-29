@@ -1,5 +1,5 @@
 $username = "master"
-$password = "BornAgainLisa987*"
+$password = "master*"
 $pair = "${username}:${password}"
 $encodedCreds = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($pair))
 $authHeader = "Basic $encodedCreds"
