@@ -8,5 +8,3 @@ echo "http.cors.allow-methods: \"OPTIONS, HEAD, GET, POST, PUT, DELETE\"" >> /us
 echo "http.cors.allow-credentials: true" >> /usr/share/opensearch/config/opensearch.yml && \
 echo "http.cors.allow-headers: \"Content-Type, Authorization\"" >> /usr/share/opensearch/config/opensearch.yml
 
-RUN curl 
-
