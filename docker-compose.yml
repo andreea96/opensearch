@@ -33,58 +33,11 @@ services:
     image: curlimages/curl
     depends_on:
       - opensearch
-    entrypoint: >
-      sh -c "
-        until curl -s http://opensearch:9200; do
-          echo 'Aștept opensearch...'; sleep 2;
-        done;
-        curl -X POST http://opensearch:9200/omifalogistica
-             -H 'Content-Type: application/json'
-             --data '{
-              "settings": {
-                "analysis": {
-                  "filter": {
-                    "image_ext_synonyms": {
-                      "type": "synonym",
-                      "synonyms": [
-                        "jpeg => jpg"
-                      ]
-                    }
-                  },
-                  "tokenizer": {
-                    "custom_pattern_tokenizer": {
-                      "type": "pattern",
-                      "pattern": "[\\W_]+"
-                    }
-                  },
-                  "analyzer": {
-                    "custom_text_analyzer": {
-                      "type": "custom",
-                      "tokenizer": "custom_pattern_tokenizer",
-                      "filter": [
-                        "lowercase",
-                        "image_ext_synonyms"
-                      ]
-                    }
-                  },
-                  "fields": {
-                    "raw": {
-                        "type": "keyword"
-                    }
-                  }
-                }
-              },
-              "mappings": {
-                "properties": {
-                  "filename": {
-                    "type": "text",
-                    "analyzer": "custom_text_analyzer"
-                  }
-                }
-              }
-            }
-        '
-      "
+    volumes:
+      - ./init.sh:/init.sh:ro
+    networks:
+      - opensearch-net
+    entrypoint: ["sh", "/init.sh"]
 volumes:
   opensearch-data:
 

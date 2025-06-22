@@ -2,7 +2,10 @@
 
 # Define the array with lowercase extensions only
 allowed_extensions=("jpg" "jpeg" "docx" "txt" "csv" "xlsx" "pdf" "pptx" "dwg" "xls" "dxf" "skp")
+excluded_paths_logistica=("V_ARHIVA_DOCUMENTE_VECHI" "VERSALOGIC_2024" "Wurth-LOGO" "BKP_MAIL" "Exporturi" "HyperBill")
 excluded_paths_omifa=("2013" "2014" "2015" "2016" "2017" "2018")
+host="192.168.1.251"
+# host="127.0.0.1" #for testing
 
 # Funcție pentru indexare fișier
 indexFile() {
@@ -14,15 +17,18 @@ indexFile() {
   id=$(echo "$filePath" | tr -d '\\/ []%:?#[]@!$&()*+,;="%<>\^`{|}~')
   id=$(echo "$id" | tr -d "'")
 
-  resp=$(base64 --wrap=0 "$filePath" |
+resp=$(base64 --wrap=0 "$filePath" |
+# resp=$(base64 -i "$filePath" | tr -d '\n' | #for testing on mac
     # into jq to make it a proper JSON string within the
     # JSON data structure
-    jq --slurp --raw-input --arg FileName "$filePath" \
+    jq --slurp --raw-input --arg FileName "$filePath" --arg ext "$ext" \
     '{
         "data": .,
-        "filename": $FileName
+        "filename": $FileName,
+        "full_filename": $FileName,
+        "extension": $ext
     }' | 
-    curl -s -X POST -d @- "http://192.168.1.251:9200/omifafiles/_doc/$id?pipeline=attachment" \
+    curl -s -X POST -d @- "http://$host:9200/omifafiles/_doc/$id?pipeline=attachment" \
         -H "Content-Type: application/json" \
         -H "$authHeader"
     ) 
@@ -38,29 +44,6 @@ indexFile() {
 # Citire folder de la user
 read -p "Introdu calea către folder sau fisier: " path
 echo "" > "failed_files_by_content.txt"
-respPipeline=$(curl -s -X PUT "http://192.168.1.251:9200/_ingest/pipeline/attachment-pipeline" \
-     -H "Content-Type: application/json" \
-     -d '{
-     "description": "Extract attachment information and remove the source encoded data",
-     "processors": [
-        {
-            "attachment": {
-                "field": "data",
-                "properties": [
-                    "content",
-                    "content_type",
-                    "content_length"
-                ]
-            }
-        },
-        {
-            "remove": {
-                "field": "data"
-            }
-        }
-    ]
-}')
-echo "Pipeline creation response: $respPipeline"
 
 ext=$(echo "${path##*.}" | tr "[:upper:]" "[:lower:]")
 if [[ " ${allowed_extensions[*]} " =~ " ${ext} " ]]; then
@@ -74,43 +57,49 @@ if [[ ! -d "$path" ]]; then
   exit 1
 fi
 
+excluded_paths=()
+# excluded_paths=${excluded_paths_omifa[@]} #for testing
+
+if [ "$path" = "/volume1/OMIFA_FILESRV" ]; then
+  excluded_paths=${excluded_paths_omifa[@]}
+elif [ "$path" = "/volume1/LOGISTICA" ]; then
+  excluded_paths=${excluded_paths_logistica[@]}
+else 
+  echo "Unrecognised path"
+  exit 1 # comment this for testing
+fi
+
 # Build the find expression
 find_expression=""
-excluded_expression=""
 
 for ext in "${allowed_extensions[@]}"; do
     # adaugăm o expresie -iname "*.ext"
     find_expression+=" -iname '*.${ext}' -o"
 done
 
-for excl in "${excluded_paths[@]}"; do
-    # adaugăm o expresie -iname "*.ext"
-    excluded_expression+=" -iname '${path}/${excl}' -o"
-done
-
 # scoatem ultimul -o
 find_expression="${find_expression% -o}"
-excluded_expression="${excluded_expression% -o}"
 
 #index folders
 folders=("$path/"*/)
 for f in "${folders[@]}"; do
   foldername=$(basename "$f")
-  if [[ ${excluded_paths[@]} = $foldername ]]
+  if [[ $excluded_paths[@] =~ $foldername ]]
   then
+    echo "excludem $foldername"
     continue
   fi
   eval "find \"$f\" -type f \\( $find_expression \\)"  | while read -r file; do
-    echo "Indexare fișier: $file"
+    # echo "Indexare fișier: $file"
     indexFile "$file" "$(echo "${file##*.}" | tr "[:upper:]" "[:lower:]")" "$path"
   done
 done
 
-echo "Indexing files from $path"
+echo "Indexing files....."
 
 # index all the files with desired extension from the main folder folder 
 eval "find \"$path\" -type f \\( $find_expression \\) -mindepth 1 -maxdepth 1" | while read -r file; do
-  echo "Indexare fișier: $file"
+#   echo "Indexare fișier: $file"
   indexFile "$file" "$(echo "${file##*.}" | tr "[:upper:]" "[:lower:]")" "$path"
 done
 
