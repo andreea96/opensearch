@@ -1,4 +1,4 @@
-#bin sh
+#!/bin/bash
 #this script is run by a cron every mounth to add newly added and recently edited files (from last mounth)
 
 # Define the array with lowercase extensions only
@@ -19,7 +19,7 @@ indexFile() {
 
   if [ "$path" = "/volume1/OMIFA_FILESRV" ]; then
     index="omifafiles"
-  else if [ "$path" = "/volume1/LOGISTICA" ]
+  elif [ "$path" = "/volume1/LOGISTICA" ]; then
     index="omifalogistica"
   fi
   
@@ -47,29 +47,6 @@ indexFile() {
 # Citire folder de la user
 path=$1
 echo "" > "failed_files_by_content.txt"
-respPipeline=$(curl -s -X PUT "http://192.168.1.251:9200/_ingest/pipeline/attachment-pipeline" \
-     -H "Content-Type: application/json" \
-     -d '{
-     "description": "Extract attachment information and remove the source encoded data",
-     "processors": [
-        {
-            "attachment": {
-                "field": "data",
-                "properties": [
-                    "content",
-                    "content_type",
-                    "content_length"
-                ]
-            }
-        },
-        {
-            "remove": {
-                "field": "data"
-            }
-        }
-    ]
-}')
-echo "Pipeline creation response: $respPipeline"
 
 ext=$(echo "${path##*.}" | tr "[:upper:]" "[:lower:]")
 if [[ " ${allowed_extensions[*]} " =~ " ${ext} " ]]; then
@@ -83,6 +60,7 @@ if [[ ! -d "$path" ]]; then
   exit 1
 fi
 
+excluded_paths=()
 if [ "$path" = "/volume1/OMIFA_FILESRV" ]; then
   excluded_paths=$excluded_paths_omifa
 elif [ "$path" = "/volume1/LOGISTICA" ]; then
@@ -97,26 +75,37 @@ find_expression=""
 excluded_expression=""
 
 for ext in "${allowed_extensions[@]}"; do
-    # adaugăm o expresie -iname "*.ext"
     find_expression+=" -iname '*.${ext}' -o"
 done
 
 for excl in "${excluded_paths[@]}"; do
-    # adaugăm o expresie -iname "*.ext"
-    excluded_expression+=" -iname '${path}/${excl}' -o"
-    # excluded_expression+=" -path '/Users/andreea.olaru/Downloads/test/${excl}' -o" #pt testare
+    excluded_expression+=" -iname '${path}/search-omifa/test/${excl}' -o"
 done
 
 # scoatem ultimul -o
 find_expression="${find_expression% -o}"
 excluded_expression="${excluded_expression% -o}"
 
-# executăm comanda find
-eval "find \"$path\" \\( $excluded_expression \\) -prune -false -o -type f \\( $find_expression \\) -o -type f -mtime -30"  | while read -r file; do
-  echo "Indexare fișier: $file"
-#   indexFile "$file" "$(echo "${file##*.}" | tr "[:upper:]" "[:lower:]")" "$path"
+#index folders
+folders=("$path/"*/)
+days=30
+for f in "${folders[@]}"; do
+  foldername=$(basename "$f")
+  if [[ ${excluded_paths[@]} = $foldername ]]
+  then
+    continue
+  fi
+  eval "find \"$f\" -type f \\( $find_expression \\) -type f \\( -mtime -$days \\)"  | while read -r file; do
+    echo "Indexare fișier: $file"
+    indexFile "$file" "$(echo "${file##*.}" | tr "[:upper:]" "[:lower:]")" "$path"
+  done
 done
 
-read -p "Apasă Enter pentru a închide"
+echo "Indexing files from $path"
+#index files
+eval "find \"$path\" -type f \\( -mtime -$days \\) -mindepth 1 -maxdepth 1" | while read -r file; do
+  echo "Indexare fișier: $file"
+  indexFile "$file" "$(echo "${file##*.}" | tr "[:upper:]" "[:lower:]")" "$path"
+done
 
 
