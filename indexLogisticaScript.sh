@@ -79,27 +79,37 @@ find_expression=""
 excluded_expression=""
 
 for ext in "${allowed_extensions[@]}"; do
-    # adaugăm o expresie -iname "*.ext"
     find_expression+=" -iname '*.${ext}' -o"
 done
 
 for excl in "${excluded_paths[@]}"; do
-    # adaugăm o expresie -iname "*.ext"
-    # excluded_expression+=" -iname '/volume1/LOGISTICA/${path}' -o"
-    excluded_expression+=" -path '/Users/andreea.olaru/Downloads/test/${excl}' -o" #pt testare
+    excluded_expression+=" -iname '${path}/${excl}' -o"
 done
 
 # scoatem ultimul -o
 find_expression="${find_expression% -o}"
 excluded_expression="${excluded_expression% -o}"
 
-# executăm comanda find
-# eval "find \"$path\" -type f \\( $find_expression \\)" | while read -r file; do
-eval "find \"$path\" \\( $excluded_expression \\) -prune -false -o -type f \\( $find_expression \\)"  | while read -r file; do
-  echo "Indexare fișier: $file"
-#   indexFile "$file" "$(echo "${file##*.}" | tr "[:upper:]" "[:lower:]")" "$path"
+#index folders
+folders=("$path/"*/)
+for f in "${folders[@]}"; do
+  foldername=$(basename "$f")
+  if [[ ${excluded_paths[@]} = $foldername ]]
+  then
+    continue
+  fi
+  eval "find \"$f\" -type f \\( $find_expression \\)"  | while read -r file; do
+    echo "Indexare fișier: $file"
+    indexFile "$file" "$(echo "${file##*.}" | tr "[:upper:]" "[:lower:]")" "$path"
+  done
 done
 
-read -p "Apasă Enter pentru a închide"
+echo "Indexing files from $path"
+
+# index all the files with desired extension from the main folder folder 
+eval "find \"$path\" -type f \\( $find_expression \\) -mindepth 1 -maxdepth 1" | while read -r file; do
+  echo "Indexare fișier: $file"
+  indexFile "$file" "$(echo "${file##*.}" | tr "[:upper:]" "[:lower:]")" "$path"
+done
 
 

@@ -1,11 +1,4 @@
 #!/bin/bash
-# This script is used to not index the content for the files whose content indexing failed
-# Credențiale și codare Base64
-username="master"
-password="master*"
-pair="${username}:${password}"
-encodedCreds=$(echo -n "$pair" | base64)
-authHeader="Authorization: Basic $encodedCreds"
 
 # Define the array with lowercase extensions only
 allowed_extensions=("docx" "txt" "csv" "xlsx" "pdf" "pptx" "dwg" "xls" "dxf" "skp")
@@ -63,8 +56,7 @@ for ext in "${allowed_extensions[@]}"; do
 done
 for excl in "${excluded_paths_omifa[@]}"; do #todo change this for logistica
     # adaugăm o expresie -iname "*.ext"
-    # excluded_expression+=" -iname '/volume1/OMIFA_FILESRV/${path}' -o"
-    excluded_expression+=" -path '/Users/andreea.olaru/Downloads/test/${excl}' -o" #pt testare
+    excluded_expression+=" -iname '${path}/${excl}' -o"
 done
 
 # scoatem ultimul -o
@@ -72,9 +64,28 @@ find_expression="${find_expression% -o}"
 excluded_expression="${excluded_expression% -o}"
 
 
-# executăm comanda find
-eval "find \"$path\" \\( $excluded_expression \\) -prune -false -o -type f \\( $find_expression \\)"  | while read -r file; do
-  echo "Indexare fișier: $file"
-  indexFile "$file" "$(echo "${file##*.}" | tr "[:upper:]" "[:lower:]")"
+#index folders
+#get all folders from the path
+folders=("$path/"*/)
+# iterate thru them and skip them if they are excluded
+for f in "${folders[@]}"; do
+  foldername=$(basename "$f")
+  if [[ ${excluded_paths[@]} = $foldername ]]
+  then
+    continue
+  fi
+  # only index files with desired extension
+  eval "find \"$f\" -type f \\( $find_expression \\)"  | while read -r file; do
+    echo "Indexare fișier: $file"
+    indexFile "$file" "$(echo "${file##*.}" | tr "[:upper:]" "[:lower:]")" "$path"
+  done
 done
 
+#index files
+echo "Indexing files from $path"
+
+# index all the files with desired extension from the main folder folder 
+eval "find \"$path\" -type f \\( $find_expression \\) -mindepth 1 -maxdepth 1" | while read -r file; do
+  echo "Indexare fișier: $file"
+  indexFile "$file" "$(echo "${file##*.}" | tr "[:upper:]" "[:lower:]")" "$path"
+done
