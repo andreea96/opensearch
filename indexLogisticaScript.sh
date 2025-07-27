@@ -2,11 +2,22 @@
 
 # Define the array with lowercase extensions only
 allowed_extensions=("jpg" "jpeg" "docx" "txt" "csv" "xlsx" "pdf" "pptx" "dwg" "xls" "dxf" "skp")
-excluded_paths_logistica=("V_ARHIVA_DOCUMENTE_VECHI" "VERSALOGIC_2024" "Wurth-LOGO" "BKP_MAIL" "Exporturi" "HyperBill")
+excluded_paths_logistica=("V_ARHIVA_DOCUMENTE_VECHI" "VERSALOGIC_2024" "Wurth-LOGO" "BKP_MAIL" "Exporturi" "HyperBill" ".AppleDB" "#teste" "#recycle")
 excluded_paths_omifa=("2013" "2014" "2015" "2016" "2017" "2018")
 
 host="192.168.1.251"
 # host="127.0.0.1" #for testing
+index=omifalogistica
+# index=omifalogistica_test #for testing
+
+if [[ -z "$1" ]]; then
+  read -p "Introdu calea către folder sau fisier: " path
+else
+  path="$1"
+fi
+date_str="$(date +%Y-%m-%d_%H:%M)"
+script_dir="$(dirname "$(realpath "$0")")"
+log_file="$script_dir/failed_logistica_${path##*/}_${date_str}.txt"
 
 indexFile() {
   local filePath="$1"
@@ -28,22 +39,18 @@ indexFile() {
         "full_filename": $FileName,
         "extension": $ext
     }' | 
-    curl -s -X POST -d @- "http://$host:9200/omifalogistica/_doc/$id?pipeline=attachment" \
+    curl -s -X POST -d @- "http://$host:9200/$index/_doc/$id?pipeline=attachment" \
         -H "Content-Type: application/json" \
         -H "$authHeader"
     ) 
     
     if echo "$resp" | jq -e 'has("error")' > /dev/null; then
       echo "Failed to send data for $filePath, HTTP code: $resp" 
-      echo "$filePath">> "failed_logistica.txt"
+      echo "$filePath">> $log_file
     else 
       echo "Data sent successfully for $filePath"
     fi
 }
-
-# Citire folder de la user
-read -p "Introdu calea către folder sau fisier: " path
-echo "" > "failed_files_by_content.txt"
 
 ext=$(echo "${path##*.}" | tr "[:upper:]" "[:lower:]")
 if [[ " ${allowed_extensions[*]} " =~ " ${ext} " ]]; then
@@ -65,7 +72,7 @@ elif [ "$path" = "/volume1/LOGISTICA" ]; then
   excluded_paths=${excluded_paths_logistica[@]}
 else 
   echo "Unrecognised path"
-  exit 1 # comment this for testing
+  # exit 1 # comment this for testing
 fi
 
 # Build the find expression

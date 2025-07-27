@@ -6,6 +6,43 @@
     <title>OMIFA_FILESRV</title>
     <link rel="icon" type="image/x-icon" href="./omifa_logo.png">
     <style>
+
+        /* cod info icon */
+        #help-icon {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #007bff;
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            text-align: center;
+            line-height: 24px;
+            cursor: pointer;
+            font-weight: bold;
+            font-family: sans-serif;
+            z-index: 2;
+        }
+
+        #modal {
+            display: none;
+            position: fixed;
+            top: 40px;
+            right: 10px;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 10px;
+            width: 400px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            font-size: 14px;
+            z-index: 2;
+        }
+
+        #help-icon:hover+#modal {
+            display: inline-block;
+        }
+        /* end cod info icon */
         :root {
             --main-red: #e30613;
             --main-blue: #005baa;
@@ -86,7 +123,8 @@
 
             .results-table td {
                 font-size: 0.75rem;
-            }
+                background-color: white;
+                align-items: center;            }
         }
 
         .search-bar-big {
@@ -233,6 +271,7 @@
             margin: 0 auto 24px auto;
             border-collapse: collapse;
             overflow: hidden;
+            text-align: center;
         }
 
         #hidden {
@@ -244,7 +283,8 @@
             padding: 8px 14px;
             font-size: 0.82rem;
             color: #005baa;
-            background: transparent;
+            background: white;
+            text-align: center;
             transition: background 0.2s, color 0.2s;
             word-break: break-all;
             max-width: 0;
@@ -302,6 +342,11 @@
 
         .white-background {
             background: #f0f4fa;
+            text-align: center;
+        }
+
+        .white-text {
+            color: white;
         }
 
         .no-results {
@@ -414,7 +459,26 @@
 </head>
 
 <body>
+   
     <div class="overlay"></div>
+    <div id="help-icon">?</div>
+    <div id="modal">
+        <b>Foldere indexate:</b>
+        <ul>
+            <li>2019-2025</li>
+            <li>LISTINI</li>
+            <li># PREZETARI_OMIFA_personalizate Clienti</li>
+            <li>Prefer_Yale</li>
+            <li>FOTO_LUCRARI</li>
+            <li>scrisoare de recomandare OMIFA && Scrisori de recomandare_2022</li>
+            <li>Prezentari_Omifa</li>
+            <li>Sigla_Omifa</li>
+            <li>TABIEXPERT_2024</li>
+            <li>SOLARSCREEN_FOLIESABLARE_horror</li>
+            <li>Sigla_Omifa</li>
+        </ul>
+    </div>
+    
     <div class="center-box">
         <h2>OMIFA_FILESRV</h2>
         <form class="search-bar-big">
@@ -437,11 +501,13 @@
         <br />
         <div id="hidden">
             <div class="white-background">Total fisiere: <b><span id="total_results"></span></b></div>
-            <div id="results"></div>
-            <div>
-                <button onclick="prevPage()" class="button">⬅ Prev</button>
-                <span id="pageIndicator"></span>
-                <button onclick="nextPage()" class="button">Next ➡</button>
+            <div id="results" class="white-background"></div>
+            <div class="center-box">
+                <div>
+                    <button onclick="prevPage()" class="button">⬅ Prev</button>
+                    <span id="pageIndicator" class="white-text"></span>
+                    <button onclick="nextPage()" class="button">Next ➡</button>
+                <div>
             </div>
         </div>
     </div>
@@ -546,11 +612,10 @@
         };
 
         if (extensionFilter !== "*") {
-            body.bool.must.push({
-                wildcard: {
-                    "filename.keyword": {
-                        value: `*.${extensionFilter}`
-                    }
+             body.bool.must.push({
+                simple_query_string: {
+                    fields: ["extension"],
+                    query: extensionFilter
                 }
             })
         }
@@ -595,7 +660,7 @@
                 ...getHighlight()
             };
 
-            fetch("http://192.168.1.251:9200/omifafiles/_search", { //@todo change omifalogistica to omifafiles for omifafiles
+            fetch("http://192.168.1.251:9200/omifafiles_new/_search", { //@todo change omifalogistica to omifafiles for omifafiles
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(body)
@@ -607,7 +672,7 @@
 
                     document.getElementById("total_results").innerHTML = totalFinds
                     document.getElementById("results").innerHTML = results.length
-                        ? results.map(r => {
+                        ? `<hr>` + results.map(r => {
                             let filename = (type === 'content' ? r._source.filename : r.highlight.filename[0]).replaceAll('/volume1', '').replaceAll('em', 'b');
                             const hightlightContentText = type === 'content' ? r.highlight["attachment.content"].join("<br /><br />") : false;
                             const tooltipHtmlForContentHighlight = hightlightContentText ? `<div class="tooltip-text">${hightlightContentText.replaceAll('em', 'b')}</div>` : "";

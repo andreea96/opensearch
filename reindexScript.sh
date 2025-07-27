@@ -3,11 +3,17 @@
 
 # Define the array with lowercase extensions only
 allowed_extensions=("jpg" "jpeg" "docx" "txt" "csv" "xlsx" "pdf" "pptx" "dwg" "xls" "dxf" "skp")
-excluded_paths_omifa=("2013" "2014" "2015" "2016" "2017" "2018")
-excluded_paths_logistica=("V_ARHIVA_DOCUMENTE_VECHI" "VERSALOGIC_2024" "Wurth-LOGO" "BKP_MAIL" "Exporturi" "HyperBill")
+excluded_paths_omifa=("2013" "2014" "2015" "2016" "2017" "2018" "2019" "2020" "2021" "2022" "2023" "2024" "#recycle" "#teste" )
+excluded_paths_logistica=("V_ARHIVA_DOCUMENTE_VECHI" "VERSALOGIC_2024" "Wurth-LOGO" "BKP_MAIL" "Exporturi" "HyperBill" ".AppleDB" "#teste" "#recycle")
 
 host="192.168.1.251"
 # host="127.0.0.1" #for testing
+
+# Citire folder de la user
+path=$1
+date_str="$(date +%Y-%m-%d_%H:%M)"
+script_dir="$(dirname "$(realpath "$0")")"
+log_file="$script_dir/failed_reindex_${path##*/}_${date_str}.txt"
 
 indexFile() {
   local filePath="$1"
@@ -21,7 +27,7 @@ indexFile() {
   # index="omifafiles" #for testing
 
   if [ "$path" = "/volume1/OMIFA_FILESRV" ]; then
-    index="omifafiles"
+    index="omifafiles_new"
   elif [ "$path" = "/volume1/LOGISTICA" ]; then
     index="omifalogistica"
   fi
@@ -44,15 +50,12 @@ indexFile() {
     
     if echo "$resp" | jq -e 'has("error")' > /dev/null; then
       echo "Failed to send data for $filePath, HTTP code: $resp" 
-      echo "$filePath">> "failed_files_by_content.txt"
+      echo "$filePath">> $log_file
     else 
       echo "Data sent successfully for $filePath"
     fi
 }
 
-# Citire folder de la user
-path=$1
-echo "" > "failed_reindexing.txt"
 
 ext=$(echo "${path##*.}" | tr "[:upper:]" "[:lower:]")
 if [[ " ${allowed_extensions[*]} " =~ " ${ext} " ]]; then
@@ -74,7 +77,7 @@ elif [ "$path" = "/volume1/LOGISTICA" ]; then
   excluded_paths=${excluded_paths_logistica[@]}
 else 
   echo "Unrecognised path"
-  exit(1) #comment for testing
+  exit 1 #comment for testing
 fi
 
 # Build the find expression
