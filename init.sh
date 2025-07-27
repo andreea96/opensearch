@@ -65,9 +65,8 @@ curl --location --request PUT 'http://opensearch:9200/omifalogistica/' \
             }
             }
         }
-        }
-        '
-curl --location --request PUT 'http://opensearch:9200/omifafiles/' \
+    }'
+    curl --location --request PUT 'http://opensearch:9200/omifafiles/' \
         --header 'Content-Type: application/json' \
         --data '{
         "settings": {
@@ -111,5 +110,22 @@ curl --location --request PUT 'http://opensearch:9200/omifafiles/' \
             }
             }
         }
+    }'
+    curl --location --request PUT 'http://192.168.1.251:9200/feedback/' \
+        --header 'Content-Type: application/json' \
+        --data '{
+        "settings": {
+            "number_of_shards": 1,
+            "number_of_replicas": 1
+        },
+        "mappings": {
+            "properties": {
+                "data": {
+                    "type": "keyword"
+                },
+                "index": {
+                    "type": "keyword"
+                }
+            }
         }
-        '
+    }'
