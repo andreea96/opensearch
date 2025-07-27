@@ -24,24 +24,70 @@
             z-index: 2;
         }
 
-        #modal {
-            display: none;
-            position: fixed;
-            top: 40px;
-            right: 10px;
-            background: white;
-            border: 1px solid #ccc;
-            padding: 10px;
-            width: 300px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-            font-size: 14px;
-            z-index: 2;
-        }
+      #feedback-icon {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        background: #007bff;
+        color: white;
+        border-radius: 16px;
+        padding: 6px 12px;
+        min-width: 80px;
+        height: auto;
+        width: auto;
+        text-align: center;
+        cursor: pointer;
+        font-weight: bold;
+        font-family: sans-serif;
+        z-index: 2;
+      }
 
-        #help-icon:hover+#modal {
-            display: inline-block;
-        }
-        /* end cod info icon */
+      #feedback-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 50%;
+        height: 100%;
+        justify-content: center;
+        align-items: center;
+        z-index: 10;
+      }
+
+      .modal-content {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        width: auto;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      textarea {
+        width: 100%;
+        height: 250px;
+        margin-bottom: 10px;
+      }
+
+      #modal {
+          display: none;
+          position: fixed;
+          top: 40px;
+          right: 10px;
+          background: white;
+          border: 1px solid #ccc;
+          padding: 10px;
+          width: 300px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+          font-size: 14px;
+          z-index: 2;
+      }
+
+      #help-icon:hover+#modal {
+          display: inline-block;
+      }
+      /* end cod info icon */
 
       :root {
         --main-red: #e30613;
@@ -461,6 +507,15 @@
 </head>
 <body>
   <div class="overlay"></div>
+    <div id="feedback-icon">FEEDBACK</div>
+    <div id="feedback-modal" class="hidden">
+      <div class="modal-content">
+        <h3>Trimite feedback</h3>
+        <textarea id="feedback-text" placeholder="Scrie aici..."></textarea>
+        <button id="submit-feedback" class="button">Trimite</button>
+        <button id="close-modal" class="button">Închide</button>
+      </div>
+    </div>
     <div id="help-icon">?</div>
     <div id="modal">
       <b>Foldere NEindexate:</b> (asa s-a cerut)
@@ -525,32 +580,68 @@
             "raport",
             "formular"
           ];
-          renderTrending();
-          window.onload = function () {
-              extensionsSelect = document.getElementById("extensions_filter");
-              searchInput = document.getElementById("searchInput");
-              extensionsSelect.innerHTML = EXTENSIONS.map(e => `<option value="${e}">${e}</option>`);
-              extensionsSelect.addEventListener("change", () => startSearch(type));
-              searchInput.addEventListener("keydown", () => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  startSearch(type);
-                }
-              })
-          };
-        function renderTrending() {
-          const list = document.getElementById('trending-list');
-          list.innerHTML = '';
-          trending.forEach(term => {
-            const span = document.createElement('span');
-            span.className = 'trend';
-            span.textContent = term;
-            span.onclick = () => {
-              document.getElementById('searchInput').value = term;
-            };
-            list.appendChild(span);
-          });
-        }
+
+    const icon = document.getElementById('feedback-icon');
+    const modal = document.getElementById('feedback-modal');
+    const closeBtn = document.getElementById('close-modal');
+    const submitBtn = document.getElementById('submit-feedback');
+    const textarea = document.getElementById('feedback-text');
+
+    renderTrending();
+
+    window.onload = function () {
+        extensionsSelect = document.getElementById("extensions_filter");
+        searchInput = document.getElementById("searchInput");
+        extensionsSelect.innerHTML = EXTENSIONS.map(e => `<option value="${e}">${e}</option>`);
+        extensionsSelect.addEventListener("change", () => startSearch(type));
+        searchInput.addEventListener("keydown", () => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            startSearch(type);
+          }
+        })
+    };
+
+    function renderTrending() {
+      const list = document.getElementById('trending-list');
+      list.innerHTML = '';
+      trending.forEach(term => {
+        const span = document.createElement('span');
+        span.className = 'trend';
+        span.textContent = term;
+        span.onclick = () => {
+          document.getElementById('searchInput').value = term;
+        };
+        list.appendChild(span);
+      });
+    }
+
+    icon.addEventListener('click', () => {
+        modal.classList.remove('hidden');
+    });
+
+    closeBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+
+    submitBtn.addEventListener('click', () => {
+      const feedback = textarea.value.trim();
+      if (feedback) {
+        sendFeedback(feedback)
+          .then(resp => {
+            if(resp.error) throw new Error();
+            alert('Mulțumim pentru feedback!');
+            modal.classList.add('hidden');
+            textarea.value = '';
+          })
+          .catch(ex => {
+            alert('Va multumim ca v-ati luat din timp sa scrieti acest feedback!\n\nDin pacate, a aparut o eroare la trimiterea feedback-ului. Mai incearca sau trimite mesajul pe mail/wapp la: \n\nandreeaolaruana@gmail.com\n0720653762. \n\nMultumim!');
+          });  
+      } else {
+        alert('Te rog completează mesajul.');
+      }
+    });
+
     function startSearch(searchType) {
       console.log(searchType);
       currentPage = 0;
@@ -683,6 +774,20 @@
       })
       .catch(err => {
         document.getElementById("results").innerHTML = `<p style="color:red;">Eroare: ${err}</p>`;
+      });
+    }
+
+    function sendFeedback(text) {
+      return new Promise((rez, rej) => {
+        fetch(`http://192.168.1.251:9200/feedback/_doc/${Date.now()}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            data: text,
+            index: 'logistica' //@todo change here for omifafiles_new 
+          })
+        }).then(response => rez(response.json()))
+          .catch(err => rej(err))
       });
     }
 
